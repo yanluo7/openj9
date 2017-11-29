@@ -657,7 +657,7 @@ j9gc_createJavaLangString(J9VMThread *vmThread, U_8 *data, UDATA length, UDATA s
 						if (flag == NULL) {
 							goto nomem;
 						}
-
+printf("YAN 1 1 about J9VMJAVALANGSTRING_SET_COMPRESSIONFLAG\n");
 						J9VMJAVALANGSTRING_SET_COMPRESSIONFLAG(vmThread, stringClass, flag);
 					}
 				}
@@ -935,7 +935,7 @@ j9gc_allocStringWithSharedCharData(J9VMThread *vmThread, U_8 *data, UDATA length
 					if (flag == NULL) {
 						goto nomem;
 					}
-
+printf("YAN 2 2 about J9VMJAVALANGSTRING_SET_COMPRESSIONFLAG\n");
 					J9VMJAVALANGSTRING_SET_COMPRESSIONFLAG(vmThread, stringClass, flag);
 				}
 			}
