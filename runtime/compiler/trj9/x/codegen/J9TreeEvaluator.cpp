@@ -9468,25 +9468,112 @@ J9::X86::TreeEvaluator::VMnewEvaluator(
          //
          // Zero-initialize the monitor slot in the header at the same time.
          //
-         generateRegRegInstruction(XORRegReg(), node, tempReg, tempReg, cg);
-         bool gen64BitInstr = TR::Compiler->target.is64Bit() && !fej9->generateCompressedLockWord();
-
-         bool initLw = (node->getOpCodeValue() != TR::New);
-         int32_t lwOffset = fej9->getByteOffsetToLockword(clazz);
-         initLw = false;
-
-         if (initLw)
-            generateMemRegInstruction(SMemReg(gen64BitInstr), node,
-                                      generateX86MemoryReference(targetReg, lwOffset, cg),
-                                      tempReg, cg);
-
          TR_BitVectorIterator bvi(*initInfo->zeroInitSlots);
+static bool UseOldBVI = feGetEnv("TR_UseOldBVI");
+//static bool UseMOVQ = feGetEnv("TR_UseMOVQ");
+if (UseOldBVI)
+   {
+         generateRegRegInstruction(XORRegReg(), node, tempReg, tempReg, cg);
          while (bvi.hasMoreElements())
             {
             generateMemRegInstruction(S4MemReg, node,
                                       generateX86MemoryReference(targetReg, bvi.getNextElement()*4 +dataOffset, cg),
                                       tempReg, cg);
             }
+   }
+else
+   {
+//         bvi.reset();
+         int32_t lastElementIndex = -1;
+         int32_t nextE = -2;
+         int32_t span = 0;
+         int32_t lastSpan = -1;
+         repzScratchReg = cg->allocateRegister(TR_FPR);
+         generateRegRegInstruction(PXORRegReg, node, repzScratchReg, repzScratchReg, cg);
+bool printStart = true;
+bool printtEnd = false;
+         while (bvi.hasMoreElements())
+            {
+            printtEnd = true;
+            if (printStart)
+               {
+               //printf("YAN %s n%dn ", comp->signature(),node->getGlobalIndex());
+               //printStart = false;
+               }
+            nextE = bvi.getNextElement();
+            //printf("%d ",nextE);
+            if (-1 == lastElementIndex) lastElementIndex = nextE;
+            span = nextE - lastElementIndex;
+            TR_ASSERT(span>=0, "YAN SPAN < 0");
+            if (span < 3)
+               {
+               lastSpan = span;
+               continue;
+               }
+            else if (span == 3)
+               {
+               //printf("[%d][4] ",lastElementIndex);
+               //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg),tempReg, cg);
+               //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+1)*4 +dataOffset, cg),tempReg, cg);
+               //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+2)*4 +dataOffset, cg),tempReg, cg);
+               //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+3)*4 +dataOffset, cg),tempReg, cg);
+               generateMemRegInstruction(MOVDQUMemReg, node, generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+               lastSpan = -1;
+               lastElementIndex = -1;
+               }
+            else if (span > 3)
+               {
+               if (lastSpan == 0)
+                  {
+                  //printf("[%d][1] ",lastElementIndex);
+                  generateMemRegInstruction(MOVDMemReg, node, generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+                  }
+               else if (lastSpan == 1)
+                  {
+                  //printf("[%d][2] ",lastElementIndex);
+                  generateMemRegInstruction(MOVQMemReg, node,generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+                  }
+               else
+                  {
+                  //printf("[%d][4] ",lastElementIndex);
+                  //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg),tempReg, cg);
+                  //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+1)*4 +dataOffset, cg),tempReg, cg);
+                  //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+2)*4 +dataOffset, cg),tempReg, cg);
+                  //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+3)*4 +dataOffset, cg),tempReg, cg);
+                  generateMemRegInstruction(MOVDQUMemReg, node, generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+                  }
+               lastElementIndex = nextE;
+               lastSpan = 0;
+               }
+            }
+         //span = nextE - lastElementIndex;
+         if (lastSpan == 0)
+            {
+            //printf("[%d][1] ",lastElementIndex);
+            generateMemRegInstruction(MOVDMemReg, node, generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+            }
+         else if (lastSpan == 1)
+            {
+            //printf("[%d][2] ",lastElementIndex);
+            generateMemRegInstruction(MOVQMemReg, node,generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+            }
+         else if (lastSpan == 2)
+            {
+            //printf("[%d][3] ",lastElementIndex);
+            TR_ASSERT(dataOffset >= 4, "dataOffset must be >= 4.");
+            generateMemRegInstruction(MOVDQUMemReg, node, generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset - 4, cg), repzScratchReg, cg);
+            //generateMemRegInstruction(MOVQMemReg, node, generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg), repzScratchReg, cg);
+            //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, lastElementIndex*4 +dataOffset, cg),tempReg, cg);
+            //generateMemRegInstruction(S4MemReg, node,generateX86MemoryReference(targetReg, (lastElementIndex+1)*4 +dataOffset, cg),tempReg, cg);
+            //generateMemRegInstruction(MOVDMemReg, node, generateX86MemoryReference(targetReg, (lastElementIndex+2)*4 +dataOffset, cg), repzScratchReg, cg);
+            }
+         else
+            {
+            TR_ASSERT(0, "BAD lastSpan");
+            }
+
+         //if (printtEnd) printf("\n");
+   }         
          useRepInstruction = false;
 
          J9JavaVM * jvm = fej9->getJ9JITConfig()->javaVM;
