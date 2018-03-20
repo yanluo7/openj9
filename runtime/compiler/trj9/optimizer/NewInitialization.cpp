@@ -507,7 +507,34 @@ bool TR_NewInitialization::findNewCandidatesInBlock(TR::TreeTop *startTree, TR::
                }
             continue;
             }
-
+         else if (node->getOpCode().isNullCheck())
+            {
+            TR::Node *referenceNode = node->getNullCheckReference();
+            if (referenceNode && referenceNode->getOpCodeValue() == TR::aloadi && referenceNode->getSymbolReference())
+               {
+               if (!referenceNode->getSymbolReference()->isUnresolved() &&
+                  (referenceNode->getSymbolReference()->getSymbol()->getKind() == TR::Symbol::IsShadow) &&
+                  (referenceNode->getSymbolReference()->getCPIndex() >= 0) &&
+                  referenceNode->getSymbolReference()->getOwningMethod(comp()))
+                  {
+                  int32_t fieldNameLen;
+                  const char *fieldName = referenceNode->getSymbolReference()->getOwningMethod(comp())->fieldNameChars(
+                                                       referenceNode->getSymbolReference()->getCPIndex(), fieldNameLen);
+                  char *className = referenceNode->getSymbolReference()->getOwningMethod(comp())->classNameChars();
+                  uint16_t classNameLen = referenceNode->getSymbolReference()->getOwningMethod(comp())->classNameLength();
+                  if (fieldName && !strncmp(fieldName, "this$0", 6) &&
+                      className && !strncmp(className, "java/util/", 10))
+                     {
+                     if (trace())
+                        traceMsg(comp(), "Node bypass escape %d className %.*s fieldName %.*s\n",
+                                          referenceNode->getGlobalIndex(),
+                                          classNameLen,className,
+                                          fieldNameLen,fieldName);
+                     continue;
+                     }
+                  }
+               }
+            }
          // Now all of the active candidates must have all their reference
          // slots marked as uninitialized.
          //

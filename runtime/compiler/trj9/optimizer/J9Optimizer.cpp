@@ -676,6 +676,7 @@ static const OptimizationStrategy cheapWarmStrategyOpts[] =
    { OMR::virtualGuardHeadMerger                                                },
    { OMR::basicBlockExtension,                       OMR::MarkLastRun                }, // extend blocks; move trees around if reqd
    { OMR::localValuePropagationGroup                                            },
+   { OMR::explicitNewInitialization,                 OMR::IfNews                },
    { OMR::arraycopyTransformation                                               },
    { OMR::treeSimplification,                        OMR::IfEnabled                  },
    { OMR::asyncCheckInsertion,                       OMR::IfNotJitProfiling          },
