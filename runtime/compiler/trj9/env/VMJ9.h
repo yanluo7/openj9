@@ -637,6 +637,7 @@ public:
 
    virtual bool               javaLangClassGetModifiersImpl(TR_OpaqueClassBlock * clazzPointer, int32_t &result);
    virtual int32_t            getJavaLangClassHashCode(TR::Compilation * comp, TR_OpaqueClassBlock * clazzPointer, bool &hashCodeComputed);
+   virtual int32_t            getObjectHashCode(TR::Compilation * comp, uintptrj_t objectPointer, bool &hashCodeComputed);
 
    virtual int32_t getCompInfo(char *processorName, int32_t stringLength) { return -1; }
 
@@ -1142,6 +1143,7 @@ public:
 #endif
 
    virtual int32_t            getJavaLangClassHashCode(TR::Compilation * comp, TR_OpaqueClassBlock * clazzPointer, bool &hashCodeComputed);
+   virtual int32_t            getObjectHashCode(TR::Compilation * comp, uintptrj_t objectPointer, bool &hashCodeComputed);
    virtual bool               javaLangClassGetModifiersImpl(TR_OpaqueClassBlock * clazzPointer, int32_t &result);
    virtual TR_OpaqueClassBlock *             getSuperClass(TR_OpaqueClassBlock *classPointer);
 

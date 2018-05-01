@@ -507,6 +507,105 @@ J9::ValuePropagation::constrainRecognizedMethod(TR::Node *node)
             }
          break;
          }
+      case TR::java_lang_Enum_hashCode:
+         {
+         //char nameBuffer[1024];
+         //printf("YAN VP constrain Enum_hashCode /%s/(%s)\n",comp()->getHotnessName(comp()->getMethodHotness()), comp()->signature());
+         TR::Node *objChild = node->getLastChild();
+         bool objChildGlobal;
+         TR::VPConstraint *objChildConstraint = getConstraint(objChild, objChildGlobal);
+         // Enum hashCode method is final, so Enum_hashCode has to be the call target
+         if (objChildConstraint && objChildConstraint->getKnownObject())
+            {
+            int32_t len;
+            const char *enumClassSig = objChildConstraint->getClassSignature(len);
+            //printf("YAN VP constrain Enum receiver %.*s\n", len, enumClassSig);
+            TR_OpaqueClassBlock * classBlock = comp()->fej9()->getClassFromSignature(enumClassSig, len, comp()->getCurrentMethod());
+            if (classBlock)
+               {
+               int32_t offsetHashCode = comp()->fej9()->getObjectHeaderSizeInBytes()
+                       + comp()->fej9()->getInstanceFieldOffset(classBlock, "hashCode", 8, "I", 1);
+               uintptrj_t* objLocation = getObjectLocationFromConstraint(objChildConstraint);
+               if (trace())
+                  traceMsg(comp(), "VP constrain Enum receiver %.*s\n", len, enumClassSig);
+	       uintptrj_t obj = *objLocation;
+	       if (obj)
+	          {
+                  int32_t hashCodeForEnum = *(int32_t*)(obj+offsetHashCode);
+                  transformCallToIconstInPlaceOrInDelayedTransformations(_curTree, hashCodeForEnum, objChildGlobal, transformNonnativeMethodInPlace);
+                  TR::DebugCounter::incStaticDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "constrainCall/(%s)", signature));
+                  return;
+		  }
+               }
+            }
+         break;
+         }
+      case TR::java_lang_Enum_ordinal:
+         {
+         char nameBuffer[1024];
+//         printf("YAN VP constrain Enum_oridnal /%s/(%s)\n",comp()->getHotnessName(comp()->getMethodHotness()), comp()->signature());
+         TR::Node *objChild = node->getLastChild();
+         bool objChildGlobal;
+         TR::VPConstraint *objChildConstraint = getConstraint(objChild, objChildGlobal);
+         // Enum hashCode method is final, so Enum_hashCode has to be the call target
+         if (objChildConstraint && objChildConstraint->getKnownObject())
+            {
+            int32_t len;
+            const char *enumClassSig = objChildConstraint->getClassSignature(len);
+//            printf("YAN VP constrain Enum oridnal receiver %.*s\n", len, enumClassSig);
+            TR_OpaqueClassBlock * classBlock = comp()->fej9()->getClassFromSignature(enumClassSig, len, comp()->getCurrentMethod());
+            if (classBlock)
+               {
+               int32_t offsetOrdinal = comp()->fej9()->getObjectHeaderSizeInBytes()
+                       + comp()->fej9()->getInstanceFieldOffset(classBlock, "ordinal", 7, "I", 1);
+               uintptrj_t* objLocation = getObjectLocationFromConstraint(objChildConstraint);
+//               printf("YAN VP constrain Enum ordinal offset %d\n", offsetOrdinal);
+               uintptrj_t obj = *objLocation;
+               if (obj)
+                  {
+                  int32_t ordinal = *(int32_t*)(obj+offsetOrdinal);
+                  transformCallToIconstInPlaceOrInDelayedTransformations(_curTree, ordinal, objChildGlobal, transformNonnativeMethodInPlace);
+                  TR::DebugCounter::incStaticDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "constrainCall/(%s)", signature));
+                  return;
+		  }
+               }
+            }
+         break;
+         }	 
+      case TR::java_lang_Object_hashCodeImpl:
+         {
+         //char nameBuffer[1024];
+         //printf("YAN VP constrain Object_hashCode /%s/(%s)\n",comp()->getHotnessName(comp()->getMethodHotness()), comp()->signature());
+         TR::Node *objChild = node->getLastChild();
+         bool objChildGlobal;
+         TR::VPConstraint *objChildConstraint = getConstraint(objChild, objChildGlobal);
+
+         if (objChildConstraint && objChildConstraint->getKnownObject())
+            {
+            int32_t len;
+            const char *objectSig = objChildConstraint->getClassSignature(len);
+            if ((objectSig && len == 18 && objChildConstraint->isFixedClass() &&
+                 !strncmp(objectSig, "Ljava/lang/Object;", 18)) || (!node->getOpCode().isIndirect()))
+               {
+               if (trace())
+                  traceMsg(comp(), "VP constrain known object java_lang_Object_hashCode receiver %.*s\n", len, objectSig);
+               uintptrj_t* objLocation = getObjectLocationFromConstraint(objChildConstraint);
+	       uintptrj_t obj = *objLocation;
+	       if (obj)
+	          {
+                  bool hashCodeWasComputed = false;
+                  int32_t hashCodeForObj = comp()->fej9()->getObjectHashCode(comp(), obj, hashCodeWasComputed);
+                  if (hashCodeWasComputed)
+                     {
+                     transformCallToIconstInPlaceOrInDelayedTransformations(_curTree, hashCodeForObj, objChildGlobal, transformNonnativeMethodInPlace);
+                     TR::DebugCounter::incStaticDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "constrainCall/(%s)", signature));
+                     return;
+                     }
+                  }
+	       }
+            }
+         break;
+         }	 
       case TR::java_lang_Class_getComponentType:
          {
          TR::Node *classChild = node->getLastChild();

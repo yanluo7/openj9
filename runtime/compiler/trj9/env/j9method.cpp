@@ -2358,6 +2358,13 @@ TR_ResolvedJ9Method::TR_ResolvedJ9Method(TR_OpaqueMethodBlock * aMethod, TR_Fron
       {  TR::unknownMethod}
       };
 
+   static X EnumMethods[] =
+      {
+      {x(TR::java_lang_Enum_hashCode, "hashCode", "()I")},
+      {x(TR::java_lang_Enum_ordinal,  "ordinal", "()I")},
+      {  TR::unknownMethod}
+      };
+
    static X ByteArrayOutputStreamMethods[] =
       {
       {x(TR::java_io_ByteArrayOutputStream_write, "write", "([BII)V")},
@@ -4124,6 +4131,7 @@ TR_ResolvedJ9Method::TR_ResolvedJ9Method(TR_OpaqueMethodBlock * aMethod, TR_Fron
       { "java/lang/Long", LongMethods },
       { "java/lang/Byte", ByteMethods },
       { "java/io/Writer", WriterMethods },
+      { "java/lang/Enum", EnumMethods },
       { 0 }
       };
 

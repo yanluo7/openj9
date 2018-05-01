@@ -68,6 +68,8 @@
    java_lang_ClassLoader_getStackClassLoader,
    java_lang_Double_longBitsToDouble,
    java_lang_Double_doubleToLongBits,
+   java_lang_Enum_hashCode,
+   java_lang_Enum_ordinal,
    java_lang_Float_intBitsToFloat,
    java_lang_Float_floatToIntBits,
    java_lang_Double_doubleToRawLongBits,

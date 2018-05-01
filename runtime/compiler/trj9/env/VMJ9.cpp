@@ -6823,6 +6823,28 @@ TR_J9VMBase::getJavaLangClassHashCode(TR::Compilation * comp, TR_OpaqueClassBloc
    return 0;
    }
 
+int32_t
+TR_J9VMBase::getObjectHashCode(TR::Compilation * comp, uintptrj_t objectPointer, bool &hashCodeComputed)
+   {
+   J9MemoryManagerFunctions * mmf = jitConfig->javaVM->memoryManagerFunctions;
+   bool haveAcquiredVMAccess = false;
+   if (tryToAcquireAccess(comp, &haveAcquiredVMAccess))
+      {
+      J9Object *ref = (J9Object *)(objectPointer);
+      int32_t hashCode = mmf->j9gc_objaccess_getObjectHashCode(jitConfig->javaVM, ref);
+
+      if (haveAcquiredVMAccess)
+         releaseAccess(comp);
+
+      hashCodeComputed = true;
+      return hashCode;
+      }
+   else
+      hashCodeComputed = false;
+
+   return 0;
+   }
+
 bool
 TR_J9VMBase::isInterfaceClass(TR_OpaqueClassBlock * clazzPointer)
    {
@@ -8637,6 +8659,13 @@ TR_J9SharedCacheVM::methodsCanBeInlinedEvenIfEventHooksEnabled()
 
 int32_t
 TR_J9SharedCacheVM::getJavaLangClassHashCode(TR::Compilation * comp, TR_OpaqueClassBlock * clazzPointer, bool &hashCodeComputed)
+   {
+   hashCodeComputed = false;
+   return 0;
+   }
+
+int32_t
+TR_J9SharedCacheVM::getObjectHashCode(TR::Compilation * comp, uintptrj_t objectPointer, bool &hashCodeComputed)
    {
    hashCodeComputed = false;
    return 0;
