@@ -6579,9 +6579,11 @@ static void genInitObjectHeader(TR::Node             *node,
    // This code was moved to this point so that the romClass can be used by the AOT
    // portion without calling the method again.
    //
-   J9ROMClass *romClass = 0;
-   TR_ASSERT(clazz, "Cannot have a null OpaqueClassBlock\n");
-   romClass = TR::Compiler->cls.romClassOf(clazz);
+   // YAN Have either a valid OpaqueClassBlock or a dynamic allocation for array clone
+   bool dymaicArrayClone = (node->getOpCodeValue() == TR::anewarray) && (node->getSecondChild()->getSymbolReference()) &&
+         (node->getSecondChild()->getSymbolReference() == comp->getSymRefTab()->findArrayComponentTypeSymbolRef());
+   TR_ASSERT((clazz || dymaicArrayClone), "Cannot have a null OpaqueClassBlock while not doing dynamic array cloning\n");
+
 
    // --------------------------------------------------------------------------------
    //
@@ -6652,6 +6654,12 @@ static void genInitObjectHeader(TR::Node             *node,
       }
    else
       {
+      //YAN
+      if (dymaicArrayClone)
+         {
+         clzReg = tempReg;
+         generateRegMemInstruction(LRegMem(), node, clzReg, generateX86MemoryReference(classReg, offsetof(J9Class, arrayClass), cg), cg);
+         }	      
       if (orFlagsClass != 0)
          generateRegImmInstruction(use64BitClasses ? OR8RegImm4 : OR4RegImm4,  node, clzReg, orFlagsClass, cg);
       generateMemRegInstruction(opSMemReg, node,
@@ -6670,6 +6678,9 @@ static void genInitObjectHeader(TR::Node             *node,
 
 #ifndef J9VM_INTERP_FLAGS_IN_CLASS_SLOT
    // Enable macro once GC-Helper is fixed
+   // YAN
+   TR_ASSERT_FATAL(!dymaicArrayClone, "Dynamic clone not supported without INTERP_FLAGS_IN_CLASS_SLOT support.");
+   J9ROMClass *romClass = TR::Compiler->cls.romClassOf(clazz);
    if (romClass)
       {
       orFlags |= romClass->instanceShape;
@@ -6691,23 +6702,44 @@ static void genInitObjectHeader(TR::Node             *node,
    //
    // --------------------------------------------------------------------------------
    //
-   J9Class *j9class = TR::Compiler->cls.convertClassOffsetToClassPtr(clazz);
-   bool initReservable = J9CLASS_EXTENDED_FLAGS(j9class) & J9ClassReservableLockWordInit;
-   if (!isZeroInitialized || initReservable)
+   // YAN
+   if (dymaicArrayClone)
       {
-      bool initLw = (node->getOpCodeValue() != TR::New) || initReservable;
-      int lwOffset = fej9->getByteOffsetToLockword(clazz);
-      if (lwOffset == -1)
-         initLw = false;
-
-      if (initLw)
+      TR::LabelSymbol *doneLabel = generateLabelSymbol(cg);
+#if defined (J9VM_THR_LOCK_NURSERY)
+      generateRegMemInstruction(LRegMem(), node, tempReg, generateX86MemoryReference(clzReg, offsetof(J9ArrayClass, lockOffset), cg), cg);
+#else
+      generateRegImmInstruction(MOVRegImm4(), node, tempReg, TMP_OFFSETOF_J9OBJECT_MONITOR, cg);
+#endif
+      generateRegImmInstruction(CMPRegImm4(), node, tempReg, (int32_t)-1, cg);
+      generateLabelInstruction (JE4, node, doneLabel, true, cg);
+      // Break if array class has a lock word offset
+      generateInstruction(BADIA32Op, node, cg);
+      generateRegMemInstruction(LEARegMem(), node, tempReg, generateX86MemoryReference(objectReg, tempReg, 0, cg) ,cg);
+      TR_X86OpCodes op = (TR::Compiler->target.is64Bit() && fej9->generateCompressedLockWord()) ? S4MemImm4 : SMemImm4();
+      generateMemImmInstruction(op, node, generateX86MemoryReference(tempReg, 0, cg), 0, cg);
+      generateLabelInstruction(LABEL, node, doneLabel, cg);
+      }
+   else
+      {
+      J9Class *j9class = TR::Compiler->cls.convertClassOffsetToClassPtr(clazz);
+      bool initReservable = J9CLASS_EXTENDED_FLAGS(j9class) & J9ClassReservableLockWordInit;
+      if (!isZeroInitialized || initReservable)
          {
-         int32_t initialLwValue = 0;
-         if (initReservable)
-            initialLwValue = OBJECT_HEADER_LOCK_RESERVED;
+         bool initLw = (node->getOpCodeValue() != TR::New) || initReservable;
+         int lwOffset = fej9->getByteOffsetToLockword(clazz);
+         if (lwOffset == -1)
+            initLw = false;
 
-         TR_X86OpCodes op = (TR::Compiler->target.is64Bit() && fej9->generateCompressedLockWord()) ? S4MemImm4 : SMemImm4();
-         generateMemImmInstruction(op, node, generateX86MemoryReference(objectReg, lwOffset, cg), initialLwValue, cg);
+         if (initLw)
+            {
+            int32_t initialLwValue = 0;
+            if (initReservable)
+               initialLwValue = OBJECT_HEADER_LOCK_RESERVED;
+
+            TR_X86OpCodes op = (TR::Compiler->target.is64Bit() && fej9->generateCompressedLockWord()) ? S4MemImm4 : SMemImm4();
+            generateMemImmInstruction(op, node, generateX86MemoryReference(objectReg, lwOffset, cg), initialLwValue, cg);
+            }
          }
       }
    }
@@ -7401,6 +7433,10 @@ J9::X86::TreeEvaluator::VMnewEvaluator(
             elementSize = (int32_t)TR::Compiler->om.sizeofReferenceAddress();
 
          classReg = node->getSecondChild()->getRegister();
+         // YAN For dynamic array cloning force evaluate second child
+         if (!classReg && node->getSecondChild()->getSymbolReference() &&
+               (node->getSecondChild()->getSymbolReference() == comp->getSymRefTab()->findArrayComponentTypeSymbolRef()))
+            classReg = cg->evaluate(node->getSecondChild());	 
          }
 
       isArrayNew = true;
@@ -7692,7 +7728,10 @@ J9::X86::TreeEvaluator::VMnewEvaluator(
    // --------------------------------------------------------------------------------
    // Initialize the header
    // --------------------------------------------------------------------------------
-   if (fej9->inlinedAllocationsMustBeVerified() && node->getOpCodeValue() == TR::anewarray)
+   // YAN if dynamic array cloning, must pass in classReg to initialize the array header
+   bool dymaicArrayClone = (node->getOpCodeValue() == TR::anewarray) && node->getSecondChild()->getSymbolReference() &&
+         (node->getSecondChild()->getSymbolReference() == comp->getSymRefTab()->findArrayComponentTypeSymbolRef());
+   if ((fej9->inlinedAllocationsMustBeVerified() && node->getOpCodeValue() == TR::anewarray) || dymaicArrayClone)
       {
       genInitArrayHeader(
             node,

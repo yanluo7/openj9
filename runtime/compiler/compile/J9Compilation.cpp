@@ -650,6 +650,14 @@ J9::Compilation::canAllocateInline(TR::Node* node, TR_OpaqueClassBlock* &classIn
       classRef      = node->getSecondChild();
       classSymRef   = classRef->getSymbolReference();
 
+      // YAN In the case of dynamic array cloning, second child is the ComponentType load
+      // return 0 indicating variable dynamic array allocation
+      if (classSymRef == self()->getSymRefTab()->findArrayComponentTypeSymbolRef())
+         {
+         clazz = NULL;
+         return 0;
+         }
+
       // Can't skip the allocation if the class is unresolved
       //
       clazz = self()->fej9vm()->getClassForAllocationInlining(self(), classSymRef);
