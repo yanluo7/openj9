@@ -93,6 +93,24 @@ public:
     */
    static bool foldStaticFinalFieldAssumingProtection(TR::Compilation *, TR::Node *node);
 
+   /** \brief
+    *     Try to fold static final field with protection
+    *
+    *  \param opt
+    *     The current optimization object.
+    *
+    *  \param currentTree
+    *     The tree with the load of static final field.
+    *
+    *  \param node
+    *     The node which is a load of a static final field.
+    *
+    *  \param varHandleOnly
+    *     True if only folding varHandle static final fields.
+    *     Faslse if folding all static final fileds.
+    */
+   static bool attemptStaticFinalFieldFolding(TR::Optimization* opt, TR::TreeTop * currentTree, TR::Node *node, bool varHandleOnly = false);
+
    /**
     * \brief
     *    Answers if a static final field can be folded

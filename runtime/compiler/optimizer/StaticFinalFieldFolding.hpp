@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2019 IBM Corp. and others
+ * Copyright (c) 2019, 2019 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -20,18 +20,31 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0 WITH Classpath-exception-2.0 OR LicenseRef-GPL-2.0 WITH Assembly-exception
  *******************************************************************************/
 
-/*
- * This file will be included within an enum.  Only comments, preprocessor macros,
- * and enumerator definitions are permitted.
- */
+#ifndef STATICFINALFIELDFOLDING_INCL
+#define STATICFINALFIELDFOLDING_INCL
 
-#include "optimizer/OMROptimizations.enum"
+#include <stdint.h>
+#include "il/Node.hpp"
+#include "optimizer/Optimization.hpp"
+#include "optimizer/OptimizationManager.hpp"
 
-   OPTIMIZATION(profileGenerator)
-   OPTIMIZATION(sequentialStoreSimplification)
-   OPTIMIZATION(osrGuardInsertion)
-   OPTIMIZATION(osrGuardRemoval)
-   OPTIMIZATION(staticFinalFieldFolding)
-   OPTIMIZATION(jProfilingBlock)
-   OPTIMIZATION(jProfilingValue)
-   OPTIMIZATION(jProfilingRecompLoopTest)
+class TR_StaticFinalFieldFolding : public TR::Optimization
+   {
+   vcount_t                        _visitCount;
+
+   void visitNode(TR::TreeTop * currentTree, TR::Node *node);
+
+   public:
+
+   TR_StaticFinalFieldFolding(TR::OptimizationManager *manager)
+      : TR::Optimization(manager)
+      {}
+   static TR::Optimization *create(TR::OptimizationManager *manager)
+      {
+      return new (manager->allocator()) TR_StaticFinalFieldFolding(manager);
+      }
+   virtual int32_t perform();
+   virtual const char * optDetailString() const throw();
+
+   };
+#endif
