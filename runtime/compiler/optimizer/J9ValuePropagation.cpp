@@ -1205,8 +1205,9 @@ bool J9::ValuePropagation::transformDirectLoad(TR::Node* node)
    if (OMR::ValuePropagation::transformDirectLoad(node))
       return true;
 
+   // Limited to varhandle folding only in VP
    if (node->isLoadOfStaticFinalField() &&
-          TR::TransformUtil::attemptStaticFinalFieldFolding(this, _curTree, node, true))
+          TR::TransformUtil::attemptVarHandleStaticFinalFieldFolding(this, _curTree, node))
       {
       return true;
       }

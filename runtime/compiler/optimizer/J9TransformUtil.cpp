@@ -1087,6 +1087,40 @@ static bool isVarHandleFolding(TR::Compilation* comp, TR_OpaqueClassBlock* decla
    }
 
 /** \brief
+ *     Try to fold var handle static final field with protection
+ *
+ *  \param opt
+ *     The current optimization object.
+ *
+ *  \param currentTree
+ *     The tree with the load of static final field.
+ *
+ *  \param node
+ *     The node which is a load of a static final field.
+ */
+bool J9::TransformUtil::attemptVarHandleStaticFinalFieldFolding(TR::Optimization* opt, TR::TreeTop * currentTree, TR::Node *node)
+   {
+   J9::TransformUtil::attemptStaticFinalFieldFoldingImpl(opt, currentTree, node, true);
+   }
+
+/** \brief
+ *     Try to fold generic static final field with protection
+ *
+ *  \param opt
+ *     The current optimization object.
+ *
+ *  \param currentTree
+ *     The tree with the load of static final field.
+ *
+ *  \param node
+ *     The node which is a load of a static final field.
+ */
+bool J9::TransformUtil::attemptGenericStaticFinalFieldFolding(TR::Optimization* opt, TR::TreeTop * currentTree, TR::Node *node)
+   {
+   J9::TransformUtil::attemptStaticFinalFieldFoldingImpl(opt, currentTree, node, false);
+   }
+
+/** \brief
  *     Try to fold static final field with protection
  *
  *  \param opt
@@ -1101,8 +1135,8 @@ static bool isVarHandleFolding(TR::Compilation* comp, TR_OpaqueClassBlock* decla
  *  \param varHandleOnly
  *     True if only folding varHandle static final fields.
  *     Faslse if folding all static final fileds.
-*/
-bool J9::TransformUtil::attemptStaticFinalFieldFolding(TR::Optimization* opt, TR::TreeTop * currentTree, TR::Node *node, bool varHandleOnly)
+ */
+bool J9::TransformUtil::attemptStaticFinalFieldFoldingImpl(TR::Optimization* opt, TR::TreeTop * currentTree, TR::Node *node, bool varHandleOnly)
    {
    TR::Compilation* comp = opt->comp();
    // first attempt folding reliable fields
@@ -1188,7 +1222,7 @@ bool J9::TransformUtil::attemptStaticFinalFieldFolding(TR::Optimization* opt, TR
       {
       TR::DebugCounter::prependDebugCounter(comp,
                                             TR::DebugCounter::debugCounterName(comp,
-                                                                               "staticFinalFieldFolding/notWorthFolding/(field %.*s)/(%s %s)",
+                                                                               "staticFinalFieldFolding/notFolded/(field %.*s)/(%s %s)",
                                                                                fieldNameLen,
                                                                                fieldName,
                                                                                comp->signature(),

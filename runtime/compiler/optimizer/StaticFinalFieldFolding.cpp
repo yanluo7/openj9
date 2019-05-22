@@ -45,29 +45,30 @@
 #include "il/symbol/MethodSymbol.hpp"
 #include "il/symbol/ResolvedMethodSymbol.hpp"
 #include "infra/Assert.hpp"
+#include "infra/Checklist.hpp"
 #include "optimizer/Optimization.hpp"
 #include "optimizer/Optimization_inlines.hpp"
 #include "optimizer/J9TransformUtil.hpp"
 
 void TR_StaticFinalFieldFolding::visitNode(TR::TreeTop * currentTree, TR::Node *node)
    {
-   if (node->getVisitCount() != _visitCount)
+   if (!_checklist->contains(node))
       {
       uint16_t childCount = node->getNumChildren();
       if (0 == childCount)
          {
          if (node->getOpCode().isLoadVarDirect() && node->isLoadOfStaticFinalField())
             {
-            J9::TransformUtil::attemptStaticFinalFieldFolding(this, currentTree, node);
+            J9::TransformUtil::attemptGenericStaticFinalFieldFolding(this, currentTree, node);
             }
-         node->setVisitCount(_visitCount);
+         _checklist->add(node);
          return;
          }
       for (int i = childCount; i>0; i--)
          {
          visitNode(currentTree, node->getChild(i-1));
          }
-      node->setVisitCount(_visitCount);
+      _checklist->add(node);
       }
    }
 
@@ -77,7 +78,7 @@ void TR_StaticFinalFieldFolding::visitNode(TR::TreeTop * currentTree, TR::Node *
  */
 int32_t TR_StaticFinalFieldFolding::perform()
    {
-   _visitCount = comp()->incVisitCount();
+   _checklist = new (trStackMemory()) TR::NodeChecklist(comp());
 
    TR::ResolvedMethodSymbol *methodSymbol = comp()->getMethodSymbol();
    TR_J9VMBase *fej9 = (TR_J9VMBase *)(comp()->fe());

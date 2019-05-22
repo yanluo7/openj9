@@ -28,10 +28,11 @@
 #include "optimizer/Optimization.hpp"
 #include "optimizer/OptimizationManager.hpp"
 
+namespace TR { class NodeChecklist; }
+
 class TR_StaticFinalFieldFolding : public TR::Optimization
    {
-   vcount_t                        _visitCount;
-
+   TR::NodeChecklist *_checklist;
    void visitNode(TR::TreeTop * currentTree, TR::Node *node);
 
    public:
